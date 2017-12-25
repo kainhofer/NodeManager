@@ -1089,54 +1089,44 @@ class SensorMQ: public Sensor {
   public:
     SensorMQ(NodeManager& node_manager, int pin, int child_id = -255);
     // [101] define the target gas whose ppm has to be returned. 0: LPG, 1: CO, 2: Smoke (default: 1);
-    void setTargetGas(int value);
+//    void setTargetGas(int value);
     // [102] define the load resistance on the board, in kilo ohms (default: 1);
-    void setRlValue(float value);
+//    void setRlValue(float value);
     // [103] define the Ro resistance on the board (default: 10000);
     void setRoValue(float value);
     // [104] Sensor resistance in clean air (default: 9.83);
-    void setCleanAirFactor(float value);
+//    void setCleanAirFactor(float value);
     // [105] define how many samples you are going to take in the calibration phase (default: 50);
-    void setCalibrationSampleTimes(int value);
+//    void setCalibrationSampleTimes(int value);
     // [106] define the time interal(in milisecond) between each samples in the cablibration phase (default: 500);
-    void setCalibrationSampleInterval(int value);
+//    void setCalibrationSampleInterval(int value);
     // [107] define how many samples you are going to take in normal operation (default: 50);
-    void setReadSampleTimes(int value);
+//    void setReadSampleTimes(int value);
     // [108] define the time interal(in milisecond) between each samples in the normal operations (default: 5);
-    void setReadSampleInterval(int value);
-    // set the LPGCurve array (default: {2.3,0.21,-0.47})
-    void setLPGCurve(float *value);
-    // set the COCurve array (default: {2.3,0.72,-0.34})
-    void setCOCurve(float *value);
-    // set the SmokeCurve array (default: {2.3,0.53,-0.44})
-    void setSmokeCurve(float *value);
-    // define what to do at each stage of the sketch
+//    void setReadSampleInterval(int value);
+    // set the Curve array (default: {2.3,0.21,-0.47})
+    void setCurve(float *value);
+    void onBefore();
     void onSetup();
     void onLoop(Child* child);
     void onReceive(MyMessage* message);
   protected:
-    float _rl_value = 1.0;
-    float _ro_clean_air_factor = 9.83;
-    int _calibration_sample_times = 50;
-    int _calibration_sample_interval = 500;
-    int _read_sample_interval = 50;
-    int _read_sample_times = 5;
+    static const float _rl_value = 1.0;
+    static const float _ro_clean_air_factor = 9.83;
+    static const int _calibration_sample_times = 10;
+    static const int _calibration_sample_interval = 250;
+    static const int _read_sample_interval = 50;
+    static const int _read_sample_times = 5;
     float _ro = 10000.0;
-    static float _default_LPGCurve[3];
-    static float _default_COCurve[3];
-    static float _default_SmokeCurve[3];
-    float *_LPGCurve;
-    float *_COCurve;
-    float *_SmokeCurve;
+    static const float _default_LPGCurve[3];
+    static const float _default_COCurve[3];
+    static const float _default_SmokeCurve[3];
+    float *_curve;
     float _MQResistanceCalculation(int raw_adc);
     float _MQCalibration();
     float _MQRead();
-    int _MQGetGasPercentage(float rs_ro_ratio, int gas_id);
+    int _MQGetGasPercentage(float rs_ro_ratio);
     int  _MQGetPercentage(float rs_ro_ratio, float *pcurve);
-    const static int _gas_lpg = 0;
-    const static int _gas_co = 1;
-    const static int _gas_smoke = 2;
-    int _target_gas = _gas_co;
 };
 #endif
 

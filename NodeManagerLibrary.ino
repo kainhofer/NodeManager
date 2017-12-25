@@ -540,7 +540,9 @@ void Sensor::presentation() {
 
 // call the sensor-specific implementation of before
 void Sensor::before() {
+  Serial.print(F("Sensor::before: ")); printFM();
   onBefore();
+  Serial.print(F("Sensor::before: after onBefore")); printFM();
   for (List<Child*>::iterator itr = children.begin(); itr != children.end(); ++itr) {
     Child* child = *itr;
     #ifdef NODEMANAGER_DEBUG
@@ -2264,52 +2266,44 @@ void SensorMCP9808::onReceive(MyMessage* message) {
  */
 #ifdef USE_MQ
 
-float SensorMQ::_default_LPGCurve[3] = {2.3,0.21,-0.47};
-float SensorMQ::_default_COCurve[3] = {2.3,0.72,-0.34};
-float SensorMQ::_default_SmokeCurve[3] = {2.3,0.53,-0.44};
+const float SensorMQ::_default_LPGCurve[3] = {2.3,0.21,-0.47};
+//const float SensorMQ::_default_COCurve[3] = {2.3,0.72,-0.34};
+//const float SensorMQ::_default_SmokeCurve[3] = {2.3,0.53,-0.44}PMS;
+
+//const float SensorMQ::_rl_value = 1.0;
+//const float SensorMQ::_ro_clean_air_factor = 9.83;
 
 SensorMQ::SensorMQ(NodeManager& node_manager, int pin, int child_id): Sensor(node_manager, pin) {
   _name = "MQ";
-  _LPGCurve = SensorMQ::_default_LPGCurve;
-  _COCurve = SensorMQ::_default_COCurve;
-  _SmokeCurve = SensorMQ::_default_SmokeCurve;
+  _curve = SensorMQ::_default_LPGCurve;
   children.allocateBlocks(1);
   new ChildInt(this,_node->getAvailableChildId(child_id),S_AIR_QUALITY,V_LEVEL,_name);
 }
 
 //setter/getter
-void SensorMQ::setTargetGas(int value) {
-  _target_gas = value;
-}
-void SensorMQ::setRlValue(float value) {
-  _rl_value = value;
-}
+//void SensorMQ::setRlValue(float value) {
+//  _rl_value = value;
+//}
 void SensorMQ::setRoValue(float value) {
   _ro = value;
 }
-void SensorMQ::setCleanAirFactor(float value) {
-  _ro_clean_air_factor = value;
-}
-void SensorMQ::setCalibrationSampleTimes(int value) {
-  _calibration_sample_times = value;
-}
-void SensorMQ::setCalibrationSampleInterval(int value){
-  _calibration_sample_interval = value;
-}
-void SensorMQ::setReadSampleTimes(int value) {
-  _read_sample_times = value;
-}
-void SensorMQ::setReadSampleInterval(int value) {
-  _read_sample_interval = value;
-}
-void SensorMQ::setLPGCurve(float *value) {
-  _LPGCurve = value;
-}
-void SensorMQ::setCOCurve(float *value) {
-  _COCurve = value;
-}
-void SensorMQ::setSmokeCurve(float *value) {
-  _SmokeCurve = value;
+//void SensorMQ::setCleanAirFactor(float value) {
+//  _ro_clean_air_factor = value;
+//}
+//void SensorMQ::setCalibrationSampleTimes(int value) {
+//  _calibration_sample_times = value;
+//}
+//void SensorMQ::setCalibrationSampleInterval(int value){
+//  _calibration_sample_interval = value;
+//}
+//void SensorMQ::setReadSampleTimes(int value) {
+//  _read_sample_times = value;
+//}
+//void SensorMQ::setReadSampleInterval(int value) {
+//  _read_sample_interval = value;
+//}
+void SensorMQ::setCurve(float *value) {
+  _curve = value;
 }
 
 // what to do during setup
@@ -2324,26 +2318,18 @@ void SensorMQ::onLoop(Child* child) {
   // calculate rs/ro
   float mq = _MQRead()/_ro;
   // calculate the ppm
-  float lpg = _MQGetGasPercentage(mq,_gas_lpg);
-  float co = _MQGetGasPercentage(mq,_gas_co);
-  float smoke = _MQGetGasPercentage(mq,_gas_smoke);
+  float lpg = _MQGetGasPercentage(mq);
   // assign to the value the requested gas
   uint16_t value;
-  if (_target_gas == _gas_lpg) value = lpg;
-  if (_target_gas == _gas_co) value = co;
-  if (_target_gas == _gas_smoke) value = smoke;
+  value = lpg;
   #ifdef NODEMANAGER_DEBUG
     Serial.print(_name);
     Serial.print(F(" I="));
     Serial.print(child->child_id);
     Serial.print(F(" V="));
     Serial.print(value);
-    Serial.print(F(" LPG="));
-    Serial.print(lpg);
-    Serial.print(F(" CO="));
-    Serial.print(co);
-    Serial.print(F(" SMOKE="));
-    Serial.println(smoke);
+    Serial.print(F(" GAS="));
+    Serial.println(value);
   #endif
   // store the value
   ((ChildInt*)child)->setValueInt((int16_t)ceil(value));
@@ -2391,15 +2377,8 @@ float SensorMQ::_MQRead() {
 }
 
 // This function passes different curves to the MQGetPercentage function which calculates the ppm (parts per million) of the target gas.
-int SensorMQ::_MQGetGasPercentage(float rs_ro_ratio, int gas_id) {
-  if ( gas_id == _gas_lpg ) {
-    return _MQGetPercentage(rs_ro_ratio,_LPGCurve);
-  } else if ( gas_id == _gas_co) {
-    return _MQGetPercentage(rs_ro_ratio,_COCurve);
-  } else if ( gas_id == _gas_smoke) {
-    return _MQGetPercentage(rs_ro_ratio,_SmokeCurve);
-  }
-  return 0;
+int SensorMQ::_MQGetGasPercentage(float rs_ro_ratio) {
+  return _MQGetPercentage(rs_ro_ratio,_curve);
 }
 
 // returns ppm of the target gas
@@ -3492,14 +3471,14 @@ void SensorConfiguration::onReceive(MyMessage* message) {
       if (strcmp(sensor->getName(),"MQ") == 0) {
         SensorMQ* custom_sensor = (SensorMQ*)sensor;
         switch(function) {
-          case 101: custom_sensor->setTargetGas(request.getValueInt()); break;
-          case 102: custom_sensor->setRlValue(request.getValueFloat()); break;
-          case 103: custom_sensor->setRoValue(request.getValueFloat()); break;
-          case 104: custom_sensor->setCleanAirFactor(request.getValueFloat()); break;
-          case 105: custom_sensor->setCalibrationSampleTimes(request.getValueInt()); break;
-          case 106: custom_sensor->setCalibrationSampleInterval(request.getValueInt()); break;
-          case 107: custom_sensor->setReadSampleTimes(request.getValueInt()); break;
-          case 108: custom_sensor->setReadSampleInterval(request.getValueInt()); break;
+//          case 101: custom_sensor->setTargetGas(request.getValueInt()); break;
+//          case 102: custom_sensor->setRlValue(request.getValueFloat()); break;
+//          case 103: custom_sensor->setRoValue(request.getValueFloat()); break;
+//          case 104: custom_sensor->setCleanAirFactor(request.getValueFloat()); break;
+//          case 105: custom_sensor->setCalibrationSampleTimes(request.getValueInt()); break;
+//          case 106: custom_sensor->setCalibrationSampleInterval(request.getValueInt()); break;
+//          case 107: custom_sensor->setReadSampleTimes(request.getValueInt()); break;
+//          case 108: custom_sensor->setReadSampleInterval(request.getValueInt()); break;
           default: return;
         }
       }
@@ -3737,6 +3716,7 @@ void NodeManager::before() {
     Sensor* sensor = *itr;
     // configure reporting interval
     if (! sensor->isReportIntervalConfigured()) sensor->setReportIntervalSeconds(_report_interval_seconds);
+    Serial.print(F("NodeManager::before: Loop sensors")); printFM();
     // call each sensor's before()
     sensor->before();
   }

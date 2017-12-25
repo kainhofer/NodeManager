@@ -1,4 +1,4 @@
-#if false
+//#if false
 /**
  * The MySensors Arduino library handles the wireless radio link and protocol
  * between your home built sensors/actuators and HA controller of choice.
@@ -85,15 +85,16 @@ SensorSHT31         | 2     | USE_SHT31          | SHT31 sensor, return temperat
  */
 
 // General settings
-#define SKETCH_NAME "NodeManager"
-#define SKETCH_VERSION "1.0"
+#define SKETCH_NAME "AirQuality PMS"
+#define SKETCH_VERSION "1.2"
 //#define MY_DEBUG
-//#define MY_NODE_ID 99
+#define MY_NODE_ID 52
 
 // NRF24 radio settings
 #define MY_RADIO_NRF24
 //#define MY_RF24_ENABLE_ENCRYPTION
 //#define MY_RF24_CHANNEL 125
+#define MY_RF24_CHANNEL 85
 //#define MY_RF24_PA_LEVEL RF24_PA_HIGH
 //#define MY_DEBUG_VERBOSE_RF24
 //#define MY_RF24_DATARATE RF24_250KBPS
@@ -207,14 +208,14 @@ SensorSHT31         | 2     | USE_SHT31          | SHT31 sensor, return temperat
 //#define USE_SONOFF
 //#define USE_HCSR04
 //#define USE_MCP9808
-//#define USE_MQ
-//#define USE_MHZ19
+#define USE_MQ
+#define USE_MHZ19
 //#define USE_AM2320
 //#define USE_TSL2561
 //#define USE_PT100
 //#define USE_DIMMER
 //#define USE_PULSE_METER
-//#define USE_PMS
+#define USE_PMS
 //#define USE_VL53L0X
 //#define USE_SSD1306
 //#define USE_SHT31
@@ -225,10 +226,10 @@ SensorSHT31         | 2     | USE_SHT31          | SHT31 sensor, return temperat
 
 #define NODEMANAGER_DEBUG
 
-//#define DISABLE_POWER_MANAGER
-//#define DISABLE_INTERRUPTS
+#define DISABLE_POWER_MANAGER
+#define DISABLE_INTERRUPTS
 //#define DISABLE_TRACK_LAST_VALUE
-//#define DISABLE_EEPROM
+#define DISABLE_EEPROM
 //#define DISABLE_SLEEP
 
 /***********************************
@@ -236,7 +237,7 @@ SensorSHT31         | 2     | USE_SHT31          | SHT31 sensor, return temperat
  */
 
 #include "NodeManagerLibrary.h"
-NodeManager node;
+NodeManager node(10);
 
 /***********************************
  * Add your sensors below
@@ -248,46 +249,17 @@ NodeManager node;
 //SensorSignal signal(node);
 //PowerManager power(5,6);
 
-// Attached sensors
-//SensorAnalogInput analog(node,A0);
-//SensorLDR ldr(node,A0);
-//SensorRain rain(node,A0);
-//SensorSoilMoisture soil(node,A0);
-//SensorThermistor thermistor(node,A0);
-//SensorML8511 ml8511(node,A0);
-//SensorACS712 acs712(node,A0);
-//SensorDigitalInput digitalIn(node,6);
-//SensorDigitalOutput digitalOut(node,6);
-//SensorRelay relay(node,6);
-//SensorLatchingRelay latching(node,6);
-//SensorDHT11 dht11(node,6);
-//SensorDHT22 dht22(node,6);
-//SensorSHT21 sht21(node);
-//SensorHTU21D htu21(node);
-//SensorSwitch sensorSwitch(node,3);
-//SensorDoor door(node,3);
-//SensorMotion motion(node,3);
-//SensorDs18b20 ds18b20(node,6);
-//SensorBH1750 bh1750(node);
-//SensorMLX90614 mlx90614(node);
-//SensorBME280 bme280(node);
-//SensorBMP085 bmp085(node);
-//SensorBMP280 bmp280(node);
-//SensorSonoff sonoff(node);
-//SensorHCSR04 hcsr04(node,6);
-//SensorMCP9808 mcp9808(node);
-//SensorMQ mq(node,A0);
-//SensorMHZ19 mhz19(node,6,7);
-//SensorAM2320 am2320(node);
-//SensorTSL2561 tsl2561(node);
-//SensorPT100 pt100(node,6);
-//SensorDimmer dimmer(node,A0);
-//SensorRainGauge rainGauge(node,3);
-//SensorPowerMeter powerMeter(node,3);
-//SensorWaterMeter waterMeter(node,3);
-//SensorPlantowerPMS pms(node,6,7);
-//SensorVL53L0X vl53l0x(node, /*XSHUT_PIN=*/2);
-//SensorSHT31 sht31(node);
+SensorMQ mq2(node, A0, 1);
+SensorMQ mq3(node, A1, 2);
+SensorMQ mq4(node, A2, 3);
+SensorMQ mq5(node, A3, 4);
+SensorMQ mq7(node, A4, 5);
+SensorMQ mq8(node, A5, 6);
+SensorMQ mq9(node, A6, 7);
+SensorMQ mq135(node, A7, 8);
+SensorMHZ19 mhz19(node, 7, 8, 10);
+SensorPlantowerPMS pmsa003(node, 3, 4, 20);
+
 
 // Other devies
 //DisplaySSD1306 ssd1306(node);
@@ -306,13 +278,53 @@ void before() {
   */
 
   //node.setReportIntervalSeconds(10);
-  //node.setReportIntervalMinutes(5);
-  //node.setSleepMinutes(5);
-  
+  //battery.setReportIntervalSeconds(10);
+//  node.setSleepSeconds(10);
+  node.setReportIntervalMinutes(10);
+  node.setSleepMinutes(10);
+
+
+  Serial.println(F("BEFORE")); printFM();
+
   //node.setPowerManager(power);
-  //battery.setReportIntervalMinutes(30);
-  //sht21.children.get(1)->child_id = 5;
+  //battery.setReportIntervalSeconds(10);
+  //sht.children.get(1)->child_id = 5;
+
+//  mq2.setCalibrationSampleTimes(10);
+//  mq2.setCalibrationSampleInterval(250);
+  mq2.children.get(1)->description = "MQ-2";
   
+//  mq3.setCalibrationSampleTimes(10);
+//  mq3.setCalibrationSampleInterval(250);
+  mq3.children.get(1)->description = "MQ-3";
+//  
+//  mq4.setCalibrationSampleTimes(10);
+//  mq4.setCalibrationSampleInterval(250);
+  mq4.children.get(1)->description = "MQ-4";
+
+//  mq5.setCalibrationSampleTimes(10);
+//  mq5.setCalibrationSampleInterval(250);
+  mq5.children.get(1)->description = "MQ-5";
+  
+//  mq7.setCalibrationSampleTimes(10);
+//  mq7.setCalibrationSampleInterval(250);
+  mq7.children.get(1)->description = "MQ-7";
+  
+//  mq8.setCalibrationSampleTimes(10);
+//  mq8.setCalibrationSampleInterval(250);
+  mq8.children.get(1)->description = "MQ-8";
+  
+//  mq9.setCalibrationSampleTimes(10);
+//  mq9.setCalibrationSampleInterval(250);
+  mq9.children.get(1)->description = "MQ-9";
+  
+//  mq135.setCalibrationSampleTimes(10);
+//  mq135.setCalibrationSampleInterval(250);
+  mq135.children.get(1)->description = "MQ-135";
+
+  mhz19.children.get(1)->description = "MH-Z19 CO2 Sensor";
+  
+  Serial.print(F("AFTER registering Sensors: ")); printFM();
   /*
   * Configure your sensors above
   */
@@ -348,4 +360,22 @@ void receiveTime(unsigned long ts) {
   // call NodeManager receiveTime routine
   node.receiveTime(ts);
 }
-#endif
+
+// Calculate the free memory in the sense of space between heap and stack borders
+// on the AVR platform. Memory holes due to heap fragmentation will NOT be
+// counted as free memory!
+int freeRam() {
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}
+void printFM() {
+  Serial.print (F("Free memory = "));
+  Serial.println (freeRam());
+}
+
+//template<int s> struct Wow;
+//Wow<sizeof(Sensor)> unused_warning;
+//Wow<sizeof(SensorMQ)> unused_warning;
+//Wow<sizeof(NodeManager)> unused_warning;
+//#endif 
