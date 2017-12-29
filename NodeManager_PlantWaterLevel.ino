@@ -1,4 +1,3 @@
-#if false
 /**
  * The MySensors Arduino library handles the wireless radio link and protocol
  * between your home built sensors/actuators and HA controller of choice.
@@ -85,14 +84,15 @@ SensorSHT31         | 2     | USE_SHT31          | SHT31 sensor, return temperat
  */
 
 // General settings
-#define SKETCH_NAME "NodeManager"
-#define SKETCH_VERSION "1.0"
+#define SKETCH_NAME "Plant Water Level"
+#define SKETCH_VERSION "0.01"
 //#define MY_DEBUG
-//#define MY_NODE_ID 99
+#define MY_NODE_ID 51
 
 // NRF24 radio settings
 #define MY_RADIO_NRF24
 //#define MY_RF24_ENABLE_ENCRYPTION
+#define MY_RF24_CHANNEL 85
 //#define MY_RF24_CHANNEL 125
 //#define MY_RF24_PA_LEVEL RF24_PA_HIGH
 //#define MY_DEBUG_VERBOSE_RF24
@@ -132,7 +132,7 @@ SensorSHT31         | 2     | USE_SHT31          | SHT31 sensor, return temperat
 //#define MY_OTA_RETRY 2
 
 // Advanced settings
-#define MY_BAUD_RATE 9600
+#define My_BAUD_RATE 115200
 //#define MY_SMART_SLEEP_WAIT_DURATION_MS 500
 #define MY_SPLASH_SCREEN_DISABLED
 //#define MY_DISABLE_RAM_ROUTING_TABLE_FEATURE
@@ -215,8 +215,8 @@ SensorSHT31         | 2     | USE_SHT31          | SHT31 sensor, return temperat
 //#define USE_DIMMER
 //#define USE_PULSE_METER
 //#define USE_PMS
-//#define USE_VL53L0X
-//#define USE_SSD1306
+#define USE_VL53L0X
+#define USE_SSD1306
 //#define USE_SHT31
 
 /***********************************
@@ -243,9 +243,9 @@ NodeManager node;
  */
 
 // built-in sensors
-//SensorBattery battery(node);
-//SensorConfiguration configuration(node);
-//SensorSignal signal(node);
+SensorBattery battery(node);
+SensorConfiguration configuration(node);
+SensorSignal signal(node);
 //PowerManager power(5,6);
 
 // Attached sensors
@@ -289,8 +289,101 @@ NodeManager node;
 //SensorVL53L0X vl53l0x(node, /*XSHUT_PIN=*/2);
 //SensorSHT31 sht31(node);
 
-// Other devies
+// Other devices
 //DisplaySSD1306 ssd1306(node);
+
+class SensorWaterLevel: public SensorVL53L0X {
+  public:
+    SensorWaterLevel(NodeManager& node_manager, int xshut_pin, int minLevel, int maxLevel, int child_id=-255);
+    // define what to do at each stage of the sketch
+    void onLoop(Child* child);
+  protected:
+    int _minLevel, _maxLevel;
+};
+
+// constructor
+SensorWaterLevel::SensorWaterLevel(NodeManager& node_manager, int xshut_pin, int minLevel, int maxLevel, int child_id): SensorVL53L0X(node_manager, xshut_pin, child_id) {
+  _name = "WTR";
+  _minLevel = minLevel;
+  _maxLevel = maxLevel;
+  new ChildInt(this, _node->getAvailableChildId(child_id+1), S_MOISTURE, V_LEVEL, "Level");
+}
+
+void SensorWaterLevel::onLoop(Child *child) {
+  Child *ch1 = children.get(1);
+  if (child == ch1) {
+    SensorVL53L0X::onLoop(child);
+  } else {
+    int dist = ((ChildInt*)ch1)->getValueInt();
+    int val = -1;
+    if (dist < 0) {
+      val = -1;
+    } else {
+      val = max(0, min(100, int(100 * (_minLevel - dist) / (_minLevel - _maxLevel))));
+    }
+    ((ChildInt*)child)->setValueInt(val);
+    #ifdef NODEMANAGER_DEBUG
+      Serial.print(_name);
+      Serial.print(F(" I="));
+      Serial.print(child->child_id);
+      Serial.print(F(" L="));
+      Serial.print(val);
+      Serial.println(F("%"));
+    #endif
+  }
+}
+
+#define XSHUT_PIN 2
+//SensorVL53L0X vl53l0x(node, XSHUT_PIN);
+SensorWaterLevel vl53l0x(node, XSHUT_PIN, 200, 60);
+
+
+
+
+class DisplayWaterLevel: public DisplaySSD1306 {
+  public:
+    DisplayWaterLevel(NodeManager& node_manager, int child_id=-255) : DisplaySSD1306(node_manager, child_id) { setFontSize(2); }
+  protected:
+    void _display(const char*displaystr = 0) {
+      _oled->setCursor(0, 0);
+      if (displaystr) {
+        if (_caption_fontsize >= 2 ) 
+          _oled->set2X();
+        else 
+          _oled->set1X();
+        _oled->print(displaystr);
+        _oled->clearToEOL();
+        _oled->println();
+      }
+
+      if (_fontsize >= 2 ) 
+        _oled->set2X();
+      else 
+        _oled->set1X();
+
+      _oled->print(F("Distance: ")); _oled->clearToEOL(); _oled->println();
+      int val = ((ChildInt*)(vl53l0x.children.get(1)))->getValueInt();
+
+      if (val > 0) { // phase failures have incorrect data
+        //    Serial.print("Distance (mm): "); Serial.println(val);
+        _oled->print(val); _oled->print(" mm"); _oled->clearToEOL(); _oled->println();
+        int valperc = ((ChildInt*)(vl53l0x.children.get(2)))->getValueInt();
+        _oled->print(F("(")); _oled->print(valperc); _oled->print(F(" %)")); _oled->clearToEOL(); _oled->println();
+      } else {
+        //    Serial.println(" out of range ");
+        _oled->print("Out-of-range"); _oled->clearToEOL(); _oled->println();
+      }
+
+      // The current row starts with index 0, so we need to offset by one
+//      if (_oled->row() + 1 < _oled->displayRows()) {
+//        _oled->clear(0, _oled->displayWidth() - 1, _oled->row() + 1, _oled->displayRows());
+//      }
+    };
+};
+
+
+//DisplaySSD1306 ssd1306(node, &Adafruit128x64, /*I2C_ADDRESS=*/0x3C);
+DisplayWaterLevel ssd1306(node);
 
 /***********************************
  * Main Sketch
@@ -308,11 +401,21 @@ void before() {
   //node.setReportIntervalSeconds(10);
   //node.setReportIntervalMinutes(5);
   //node.setSleepMinutes(5);
-  
+  node.setSleepSeconds(1);
+  node.setReportIntervalSeconds(1);
+
+//  battery.setReportIntervalMinutes(60);
+//  battery.setMinVoltage(1.8);
+//  battery.setMaxVoltage(3.3);
+
   //node.setPowerManager(power);
   //battery.setReportIntervalMinutes(30);
   //sht21.children.get(1)->child_id = 5;
-  
+
+  vl53l0x.children.get(1)->description = "Distance";
+  ((ChildString*)ssd1306.children.get(1))->setValueString("VL53L0X");
+  // Display-related settings for SSD1306 must be made in setup() after node.setup()!
+
   /*
   * Configure your sensors above
   */
@@ -329,6 +432,7 @@ void presentation() {
 void setup() {
   // call NodeManager setup routine
   node.setup();
+//  ssd1306.rotateDisplay(true);
 }
 
 // loop
@@ -348,4 +452,15 @@ void receiveTime(unsigned long ts) {
   // call NodeManager receiveTime routine
   node.receiveTime(ts);
 }
-#endif
+
+
+int freeRam() {
+  extern int __heap_start, *__brkval; 
+  int v; 
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval); 
+}
+void printFM() {
+  Serial.print (F("Free memory = "));
+  Serial.println (freeRam());
+}
+
